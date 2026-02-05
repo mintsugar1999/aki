@@ -1,6 +1,6 @@
 import Head from 'next/head'
 import { useState, useEffect, useRef } from 'react'
-import io from 'socket.io-client'
+import { createClient } from '@supabase/supabase-js'
 
 export default function Home() {
   const [nickname, setNickname] = useState('')
@@ -8,8 +8,17 @@ export default function Home() {
   const [inputMessage, setInputMessage] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [isInChat, setIsInChat] = useState(false)
-  const socketRef = useRef(null)
+  const supabaseRef = useRef(null)
+  const subscriptionRef = useRef(null)
   const messagesEndRef = useRef(null)
+
+  // Initialize Supabase client
+  useEffect(() => {
+    supabaseRef.current = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  }, [])
 
   const handleJoinChat = () => {
     if (nickname.trim()) {
@@ -18,53 +27,118 @@ export default function Home() {
   }
 
   const handleSendMessage = () => {
-    if (inputMessage.trim() && socketRef.current) {
-      socketRef.current.emit('sendMessage', {
-        nickname,
-        message: inputMessage,
-        type: 'text',
-      })
-      setInputMessage('')
+    if (inputMessage.trim() && supabaseRef.current) {
+      supabaseRef.current
+        .from('chat_messages')
+        .insert({
+          nickname,
+          message: inputMessage,
+          type: 'text',
+          timestamp: new Date().toISOString()
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error sending message:', error)
+          } else {
+            setInputMessage('')
+          }
+        })
     }
   }
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0]
-    if (file && socketRef.current) {
+    if (file && supabaseRef.current) {
+      console.log('Uploading file:', file.name, file.type, file.size)
+      
+      // Check if file is an image
+      if (!file.type.startsWith('image/')) {
+        console.error('File is not an image:', file.type)
+        return
+      }
+      
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        console.error('File too large:', file.size)
+        return
+      }
+      
       const reader = new FileReader()
+      reader.onloadstart = () => {
+        console.log('Starting to read file...')
+      }
       reader.onloadend = () => {
-        socketRef.current.emit('sendMessage', {
-          nickname,
-          message: reader.result,
-          type: 'image',
-        })
+        console.log('File read complete, data URL length:', reader.result.length)
+        
+        supabaseRef.current
+          .from('chat_messages')
+          .insert({
+            nickname,
+            message: reader.result,
+            type: 'image',
+            timestamp: new Date().toISOString()
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.error('Error sending image:', error)
+            } else {
+              console.log('Image sent successfully')
+            }
+          })
+      }
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error)
       }
       reader.readAsDataURL(file)
     }
   }
 
   useEffect(() => {
-    if (isInChat) {
-      socketRef.current = io('', {
-        path: '/api/socket'
-      })
+    if (isInChat && supabaseRef.current) {
+      // Get existing messages
+      supabaseRef.current
+        .from('chat_messages')
+        .select('*')
+        .order('timestamp', { ascending: true })
+        .then(({ data, error }) => {
+          if (data) {
+            setMessages(data)
+          }
+        })
 
-      socketRef.current.on('connect', () => {
-        setIsConnected(true)
-        socketRef.current.emit('joinChat', { nickname })
-      })
+      // Send join message
+      supabaseRef.current
+        .from('chat_messages')
+        .insert({
+          nickname: 'System',
+          message: `${nickname} 加入了聊天`,
+          type: 'text',
+          timestamp: new Date().toISOString()
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error sending join message:', error)
+          }
+        })
 
-      socketRef.current.on('receiveMessage', (message) => {
-        setMessages((prev) => [...prev, message])
-      })
+      // Subscribe to new messages
+      subscriptionRef.current = supabaseRef.current
+        .channel('chat_messages')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages'
+        }, (payload) => {
+          console.log('New message received:', payload.new)
+          setMessages((prev) => [...prev, payload.new])
+        })
+        .subscribe()
 
-      socketRef.current.on('disconnect', () => {
-        setIsConnected(false)
-      })
+      setIsConnected(true)
 
       return () => {
-        if (socketRef.current) {
-          socketRef.current.disconnect()
+        if (subscriptionRef.current) {
+          supabaseRef.current.removeChannel(subscriptionRef.current)
         }
       }
     }
@@ -125,7 +199,7 @@ export default function Home() {
       <main className="flex-grow container mx-auto p-4">
         <div className="bg-white rounded-lg shadow-md h-[70vh] sm:h-[80vh] overflow-y-auto mb-4 p-4">
           {messages.map((msg, index) => (
-            <div key={index} className={`mb-4 ${msg.nickname === nickname ? 'text-right' : 'text-left'}`}>
+            <div key={msg.id || index} className={`mb-4 ${msg.nickname === nickname ? 'text-right' : 'text-left'}`}>
               <div className={`flex items-start ${msg.nickname === nickname ? 'justify-end' : 'justify-start'}`}>
                 {msg.nickname !== nickname && (
                   <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
@@ -140,7 +214,15 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="inline-block">
-                      <img src={msg.message} alt="Image" className="max-w-full sm:max-w-xs rounded-lg shadow-sm" />
+                      <img 
+                        src={msg.message} 
+                        alt="Image" 
+                        className="max-w-full sm:max-w-xs rounded-lg shadow-sm"
+                        onError={(e) => {
+                          console.error('Error loading image:', e.target.src)
+                          e.target.alt = 'Image failed to load'
+                        }}
+                      />
                     </div>
                   )}
                 </div>

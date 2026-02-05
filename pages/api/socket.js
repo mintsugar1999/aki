@@ -1,45 +1,34 @@
-import { Server } from 'socket.io'
+import Pusher from 'pusher'
+
+// 初始化Pusher
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.PUSHER_CLUSTER,
+  useTLS: true
+})
 
 const SocketHandler = (req, res) => {
-  if (!res.socket.server.io) {
-    console.log('Socket is initializing')
+  if (req.method === 'POST') {
+    const { action, data } = req.body
     
-    const io = new Server(res.socket.server, {
-      path: '/api/socket',
-      cors: {
-        origin: '*',
-        methods: ['GET', 'POST']
-      }
-    })
+    if (action === 'joinChat') {
+      console.log(`${data.nickname} joined the chat`)
+      pusher.trigger('chatroom', 'receiveMessage', {
+        nickname: 'System',
+        message: `${data.nickname} 加入了聊天`,
+        type: 'text'
+      })
+    } else if (action === 'sendMessage') {
+      console.log('Received message:', data)
+      pusher.trigger('chatroom', 'receiveMessage', data)
+    }
     
-    io.on('connection', (socket) => {
-      console.log('New client connected')
-      
-      socket.on('joinChat', (data) => {
-        console.log(`${data.nickname} joined the chat`)
-        socket.join('chatroom')
-        io.to('chatroom').emit('receiveMessage', {
-          nickname: 'System',
-          message: `${data.nickname} 加入了聊天`,
-          type: 'text'
-        })
-      })
-      
-      socket.on('sendMessage', (data) => {
-        console.log('Received message:', data)
-        io.to('chatroom').emit('receiveMessage', data)
-      })
-      
-      socket.on('disconnect', () => {
-        console.log('Client disconnected')
-      })
-    })
-    
-    res.socket.server.io = io
+    res.status(200).json({ success: true })
   } else {
-    console.log('Socket is already running')
+    res.status(200).json({ message: 'Socket API' })
   }
-  res.end()
 }
 
 export default SocketHandler
