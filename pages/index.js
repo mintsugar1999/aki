@@ -159,13 +159,14 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-2">
         <Head>
-          <title>聊天</title>
+          <title>Stranger Things</title>
           <meta name="description" content="无需登录的多人聊天" />
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+          <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet" />
         </Head>
 
         <div className="bg-gray-100 p-2 rounded-lg shadow-md w-full max-w-md">
-          <h1 className="text-xl font-bold mb-2 text-center text-gray-800">聊天</h1>
+          <h1 className="text-2xl font-bold mb-2 text-center text-gray-800 font-['Playfair Display']">Stranger Things</h1>
           <div className="mb-2">
             <label className="block text-gray-700 mb-1 text-sm">输入昵称</label>
             <input
@@ -188,93 +189,132 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Head>
-        <title>聊天 - {nickname}</title>
+        <title>Stranger Things - {nickname}</title>
         <meta name="description" content="无需登录的多人聊天" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
       <header className="bg-blue-600 text-white p-2">
         <div className="w-full flex justify-between items-center px-2">
-          <h1 className="text-lg font-bold">聊天</h1>
+          <h1 className="text-xl font-bold text-white font-['Playfair Display']">Stranger Things</h1>
           <div className="flex items-center">
-            <span className="mr-2 text-sm sm:text-base truncate max-w-[120px]">{nickname}</span>
+            <span className="mr-2 text-sm truncate max-w-[120px]">{nickname}</span>
             <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></span>
           </div>
         </div>
       </header>
 
-      <main className="flex-grow w-full p-2 flex flex-col">
-        <div className="bg-white rounded-lg shadow-md flex-grow overflow-y-auto mb-2 p-2">
+      <main className="flex-grow w-full p-4 pb-20">
+        <div className="flex-grow overflow-y-auto">
           {messages.map((msg, index) => (
-            <div key={msg.id || index} className={`mb-4 ${msg.nickname === nickname ? 'text-right' : 'text-left'}`}>
-              <div className={`flex items-start ${msg.nickname === nickname ? 'justify-end' : 'justify-start'}`}>
-                {msg.nickname !== nickname && (
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+            <div 
+              key={`${msg.timestamp}-${index}`} 
+              className={`mb-4 ${msg.nickname === nickname ? 'text-right' : 'text-left'}`}
+            >
+              {msg.nickname !== nickname && (
+                <div className="flex items-start mb-2">
+                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                     {msg.nickname.charAt(0).toUpperCase()}
                   </div>
-                )}
-                <div className="max-w-[80%] sm:max-w-[70%]">
-                  <div className={`text-xs sm:text-sm font-medium mb-1 ${msg.nickname === nickname ? 'text-right text-blue-600' : 'text-left text-gray-600'}`}>{msg.nickname}</div>
-                  {msg.type === 'text' ? (
-                    <div className={`inline-block p-2 rounded-lg ${msg.nickname === nickname ? 'bg-blue-100 text-gray-800' : 'bg-gray-100 text-gray-800'} shadow-sm`}>
-                      <p className="text-sm">{decryptMessage(msg.message)}</p>
+                  <div className="flex-grow">
+                    <div className="flex items-center mb-1">
+                      <span className="text-xs font-medium text-gray-600 mr-2">{msg.nickname}</span>
+                      <span className="text-xs text-gray-400">
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="inline-block">
-                      <img 
-                        src={msg.message} 
-                        alt="Image" 
-                        className="max-w-full sm:max-w-xs rounded-lg shadow-sm"
-                        onError={(e) => {
-                          console.error('Error loading image:', e.target.src)
-                          e.target.alt = 'Image failed to load'
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className={`text-xs text-gray-400 mt-1 ${msg.nickname === nickname ? 'text-right' : 'text-left'}`}>
-                    {msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+                    {msg.type === 'text' ? (
+                      <div className="inline-block p-3 rounded-lg bg-gray-100 text-gray-800 max-w-[80%]">
+                        <p className="text-sm">{decryptMessage(msg.message)}</p>
+                      </div>
+                    ) : (
+                      <div className="inline-block max-w-[80%]">
+                        <img 
+                          src={msg.message} 
+                          alt="Image" 
+                          className="max-w-full rounded-lg"
+                          onError={(e) => {
+                            console.error('Error loading image:', e.target.src)
+                            e.target.alt = 'Image failed to load'
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-                {msg.nickname === nickname && (
-                  <div className="w-8 h-8 bg-blue-300 rounded-full flex items-center justify-center ml-2 flex-shrink-0">
+              )}
+              {msg.nickname === nickname && (
+                <div className="flex items-start justify-end mb-2">
+                  <div className="flex-grow max-w-[80%]">
+                    <div className="flex items-center justify-end mb-1">
+                      <span className="text-xs text-gray-400 mr-2">
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                      <span className="text-xs font-medium text-blue-600">{msg.nickname}</span>
+                    </div>
+                    {msg.type === 'text' ? (
+                      <div className="inline-block p-3 rounded-lg bg-blue-100 text-gray-800 max-w-[80%]">
+                        <p className="text-sm">{decryptMessage(msg.message)}</p>
+                      </div>
+                    ) : (
+                      <div className="inline-block max-w-[80%]">
+                        <img 
+                          src={msg.message} 
+                          alt="Image" 
+                          className="max-w-full rounded-lg"
+                          onError={(e) => {
+                            console.error('Error loading image:', e.target.src)
+                            e.target.alt = 'Image failed to load'
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-8 h-8 bg-blue-300 rounded-full flex items-center justify-center ml-3 flex-shrink-0">
                     {msg.nickname.charAt(0).toUpperCase()}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
-
-        <div className="flex border border-gray-300 rounded-md overflow-hidden">
+      </main>
+      
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-50 border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => document.getElementById('image-upload').click()}
+            className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+          >
+            <Image className="w-5 h-5" />
+          </button>
+          <input
+            type="file"
+            id="image-upload"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-grow px-2 sm:px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+            className="flex-grow mx-3 px-4 py-2 rounded-full bg-white text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="输入消息..."
           />
-          <label className="bg-gray-100 px-2 sm:px-3 py-2 border-l border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-          </label>
           <button
             onClick={handleSendMessage}
-            className="bg-blue-500 text-white px-2 sm:px-3 py-2 hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 whitespace-nowrap flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
           >
-            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Send className="w-5 h-5" />
           </button>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
